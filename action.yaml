@@ -1,0 +1,58 @@
+apiVersion: automation.cloudbees.io/v1alpha1
+kind: action
+name: njsscan-hybrid-plugin-private
+
+inputs:
+  ref:
+    description: 'Flag to indicate the ref that should be archived (same as supplied to checkout)'
+    required: false
+    default: ''
+  workspace-dir:
+    description: 'Flag to mention the path where the checked out code will be present'
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Generate sha and ref 
+      uses: docker://public.ecr.aws/l7o7z1g8/actions/assets-plugin-chain-utils:f725443f3373e3939a1e0258f994fe6a46cf76dc
+      with:
+        entrypoint: assets-plugin-chain-utils
+        args: get-commit-info
+      env:
+         INPUT_CLOUDBEES_API_TOKEN: ${{ cloudbees.api.token }}
+         INPUT_CLOUDBEES_API_URL: ${{ cloudbees.api.url }}
+         INPUT_RUN_ID: ${{ cloudbees.run_id }}
+         INPUT_CLOUDBEES_EVENT_PATH: /cloudbees/event.json
+         INPUT_REF: ${{ inputs.ref }}
+         INPUT_WORKSPACE_DIR: ${{ inputs.workspace-dir }}
+
+    - name: Generate reference files 
+      uses: docker://public.ecr.aws/l7o7z1g8/actions/assets-plugin-chain-utils:f725443f3373e3939a1e0258f994fe6a46cf76dc
+      with:
+          entrypoint: assets-plugin-chain-utils
+          args: generate-references --asset-type "CODE"
+      env:
+          INPUT_CLOUDBEES_API_TOKEN: ${{ cloudbees.api.token }}
+          INPUT_CLOUDBEES_API_URL: ${{ cloudbees.api.url }}
+          INPUT_RUN_ID: ${{ cloudbees.run_id }}
+
+    - name: Run njsscan compliance plugin
+      uses: docker://public.ecr.aws/l7o7z1g8/actions/assets-njsscan-scanner:6729338d9bada7a0ccc39dfe85f72862df80250c
+      env:
+          RUN_ID: ${{ cloudbees.run_id }}
+          JOB_ID: ${{ job.id }}
+          STEP_ID: ${{ step.internal.id }}
+      run: /app/plugin-njsscan-scanner -mode single
+
+    - name: Complete execution plan
+      uses: docker://public.ecr.aws/l7o7z1g8/actions/assets-plugin-chain-utils:f725443f3373e3939a1e0258f994fe6a46cf76dc
+      id: process-outputs
+      with:
+          entrypoint: assets-plugin-chain-utils
+          args: process-outputs
+      env:
+          INPUT_CLOUDBEES_API_TOKEN: ${{ cloudbees.api.token }}
+          INPUT_CLOUDBEES_API_URL: ${{ cloudbees.api.url }}
+          INPUT_RUN_ID: ${{ cloudbees.run_id }}
