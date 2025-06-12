@@ -37,7 +37,16 @@ runs:
           INPUT_CLOUDBEES_API_TOKEN: ${{ cloudbees.api.token }}
           INPUT_CLOUDBEES_API_URL: ${{ cloudbees.api.url }}
           INPUT_RUN_ID: ${{ cloudbees.run_id }}
-
+          
+    - name: Run SCC Scan for tag generation
+      uses: docker://public.ecr.aws/l7o7z1g8/actions/assets-scc-scanner:1a81610bbb3d6e6f2c4586f21d85638e56718a70
+      continue-on-error: true
+      env:
+          RUN_ID: ${{ cloudbees.run_id }}
+          JOB_ID: ${{ job.id }}
+          STEP_ID: ${{ step.internal.id }}
+      run: /app/plugin-scc-scanner -mode single
+      
     - name: Run njsscan compliance plugin
       uses: docker://public.ecr.aws/l7o7z1g8/actions/assets-njsscan-scanner:6729338d9bada7a0ccc39dfe85f72862df80250c
       env:
